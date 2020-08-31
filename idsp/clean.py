@@ -9,6 +9,7 @@ import re
 import camelot
 from lxml import etree
 import pandas as pd
+import roman
 
 data_dir = 'data'
 
@@ -68,12 +69,26 @@ def replace_extraneous_newlines(cell):
 def collapse_spaces(cell):
     return ' '.join(cell.split())
 
+
+roman_numerals = [roman.toRoman(x).lower() for x in range(1, 70)]
+
 def remove_roman_number(cell):
-    pass
+    split = cell.split()
+    if len(split) > 0 and split[0].lower().rstrip('.') in roman_numerals:
+        return ' '.join(split[1:])
+    if len(split) > 0 and split[-1].lower().rstrip('.') in roman_numerals:
+        return ' '.join(split[0:-1])
+    split = cell.split('.')
+    if len(split) > 0 and split[0].lower() in roman_numerals:
+        return '.'.join(split[1:])
+    else:
+        return cell
+    
 
 def clean_sheet(df):
     df = df.applymap(replace_extraneous_newlines)
     df = df.applymap(collapse_spaces)
+    df['disease_illness'] = df['disease_illness'].apply(remove_roman_number)
     return df
 
 def process_one_by_one(year = 2018, rewrite = False):
