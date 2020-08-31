@@ -44,7 +44,7 @@ def scrape_web(year=2018, from_week=1, to_week=52):
     if (crawl is None):
         crawl = {}
 
-        r = requests.get('https://idsp.nic.in/index4.php?lang=1&level=0&linkid=406&lid=3689')
+        r = requests.get('https://idsp.nic.in/index4.php?lang=1&level=0&linkid=406&lid=3689', verify=False)
         tree = etree.fromstring(r.content, etree.HTMLParser())
         table = tree.xpath('//*[@id="cmscontent"]')
         rows = table[0].cssselect('tr')
@@ -74,7 +74,7 @@ def scrape_web(year=2018, from_week=1, to_week=52):
         for w in to_download:
             print('Downloading year {}, week {} ...'.format(year, w))
             link = crawl[year][w]
-            r = requests.get(link, stream=True)
+            r = requests.get(link, stream=True, verify=False)
             filename = os.path.join(year_dir, '{}.pdf'.format(w))
             with open(filename, 'wb') as f:
                 for chunk in r.iter_content(1024):
