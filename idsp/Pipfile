@@ -10,6 +10,7 @@ requests = "*"
 camelot-py = {extras = ["cv"], version = "*"}
 lxml = "*"
 cssselect = "*"
+certifi = "*"
 
 [requires]
 python_version = "3.8"
