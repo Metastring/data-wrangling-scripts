@@ -190,8 +190,6 @@ def append_tables(all_tables):
     return df
 
 def process_one_by_one(year = 2018, from_week = 1, to_week = 53):
-    from_week = 1
-    to_week = 53
     for i in range(from_week, to_week + 1):
         pdf_name = os.path.join(data_dir, str(year), '{}.pdf'.format(i))
         if (not(os.path.exists(pdf_name))):
