@@ -101,7 +101,7 @@ def extract_tables(year=2018, from_week=1, to_week=52):
         filename = os.path.join(year_dir, filename)
         print('Processing {} ...'.format(filename))
         # tables = camelot.read_pdf(filename, pages='2-end', line_size_scaling=40)
-        tables = camelot.read_pdf(filename, pages='2-end', flavor='lattice', line_scale=40)
+        tables = camelot.read_pdf(filename, pages='2-end', flavor='lattice', line_scale=60)
 
         print('Found {} tables(s)'.format(tables.n))
         all_tables.append(tables)
@@ -198,46 +198,62 @@ def splitcases(cell):
 def splitdeaths(cell):
     return splitcasesdeaths(cell, 1)
 
+def chars_in_cell(cell, chars):
+    return chars in cell.replace(' ', '').replace('\n', '').lower()
+
+def primary_col(df, table):
+    columns = list(table.df.iloc[0])
+    if 'reportedlate' in columns[0].lower().replace(' ', '') or 'undersurv' in columns[0].lower().replace(' ', '') or 'follow-up' in columns[0].lower():
+        return secondary_col(df, table)
+    temp = table.df.copy()
+    if chars_in_cell(columns[0], 'sr.') or chars_in_cell(columns[0], 'sl.') or chars_in_cell(columns[1], 'nameof'):
+        temp = temp.iloc[1:]
+    temp.columns = old_ten_headers
+    temp['reported_late'] = False
+    temp['under_surveillance'] = False
+    return pd.concat([df, temp], sort=False)
+
+def secondary_col(df, table):
+    columns = list(table.df.iloc[0])
+    temp = table.df.copy()
+    if 'follow-up' in columns[0].lower():
+        print("Dropping follow-up table")
+        return None
+    if 'disease' in columns[0].lower():
+        c = temp.iloc[0]
+        temp = temp.iloc[2:]
+        temp.columns = old_nine_headers
+        if 'reportedlate' in c[0].lower().replace(' ', ''):
+            temp['reported_late'] = True
+            temp['under_surveillance'] = False
+        elif 'undersurv' in c[0].lower().replace(' ', ''):
+            temp['reported_late'] = False
+            temp['under_surveillance'] = True
+        return pd.concat([df, temp], sort=False)
+    else:
+        temp.columns = old_nine_headers
+        temp['reported_late'] = True
+        temp['under_surveillance'] = False
+        return pd.concat([df, temp], sort=False)
+
 def append_tables_v1(all_tables):
     df = pd.DataFrame(columns=old_headers)
     for tables in all_tables:
         for table in tables:
-            columns = list(table.df.iloc[0])
             if table.shape[1] == 9:
-                temp = table.df.copy()
-                if 'sr.' in columns[0].lower() or 'sl.' in columns[0].lower():
-                    temp = temp.iloc[1:]
-                temp.columns = old_ten_headers
-                temp['reported_late'] = False
-                temp['under_surveillance'] = False
-                df = pd.concat([df, temp], sort=False)
+                possible_df = primary_col(df, table)
+                if possible_df is not None:
+                    df = possible_df
             elif table.shape[1] == 8:
-                temp = table.df.copy()
-                if 'follow-up' in columns[0].lower():
-                    print("Dropping follow-up table")
-                    continue
-                if 'disease' in columns[0].lower():
-                    c = temp.iloc[0]
-                    temp = temp.iloc[2:]
-                    temp.columns = old_nine_headers
-                    if 'reportedlate' in c[0].lower().replace(' ', ''):
-                        temp['reported_late'] = True
-                        temp['under_surveillance'] = False
-                    elif 'undersurv' in c[0].lower().replace(' ', ''):
-                        temp['reported_late'] = False
-                        temp['under_surveillance'] = True
-                    df = pd.concat([df, temp], sort=False)
-                else:
-                    temp.columns = old_nine_headers
-                    temp['reported_late'] = True
-                    temp['under_surveillance'] = False
-                    df = pd.concat([df, temp], sort=False)
+                possible_df = secondary_col(df, table)
+                if possible_df is not None:
+                    df = possible_df
     df['num_cases'] = df['num_cases_deaths'].apply(splitcases).apply(stripSpaces)
     df['num_deaths'] = df['num_cases_deaths'].apply(splitdeaths).apply(stripSpaces)
     df = df[headers]
     return df
 
-def append_tables(all_tables, algo_version=2):
+def append_tables(all_tables):
     """Append all tables in PDFs
 
     Parameters
@@ -245,14 +261,16 @@ def append_tables(all_tables, algo_version=2):
     all_tables : list
 
     """
-    if (algo_version == 1):
-        return append_tables_v1(all_tables)
-    df = pd.DataFrame(headers)
+    df = pd.DataFrame(columns=headers)
     for tables in all_tables:
         for table in tables:
             columns = list(table.df.iloc[0])
-            if table.shape[1] == 10:
+            print(columns)
+            print(list(table.df.iloc[1]))
+            if table.shape[1] == 10 or 'unique' in columns[0].lower().replace(' ', ''):
                 temp = table.df.copy()
+                if (table.shape[1] > 10):
+                    temp = temp.iloc[:, 0:10]
                 if 'unique' in columns[0].lower():
                     temp = temp.iloc[1:]
                 temp.columns = ten_headers
@@ -287,14 +305,15 @@ def process_one_by_one(year = 2018, from_week = 1, to_week = 53):
         try:
             all_tables = extract_tables(year=year, from_week=i, to_week=i)
             if year <= 2011:
-                df = append_tables(all_tables, 1)
+                df = append_tables_v1(all_tables)
             else:
-                df = append_tables(all_tables, 2)
+                df = append_tables(all_tables)
             filename = os.path.join(data_dir, str(year), '{}.csv'.format(i))
             df.to_csv(filename, index=False, quoting=1, encoding='utf-8')
         except:
             print("FAILED TO READ FILE: ", year, i, "pdf")
-        
+            raise
+
 directory = sys.argv[1] if len(sys.argv) > 1 else "2018"
 from_week = sys.argv[2] if len(sys.argv) > 2 else "1"
 to_week = sys.argv[3] if len(sys.argv) > 3 else "53"

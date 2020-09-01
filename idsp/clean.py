@@ -91,11 +91,33 @@ def remove_leading_number(cell):
     else:
         return cell
 
+def isempty(text):
+    return text.strip() == ""
+
+def all_cells_empty(listofcells):
+    return all(isempty(ele) for ele in listofcells)
+
+def merge_overflowing_tables_to_previous_page(df):
+    rowsToDelete = []
+    for i, row in df.iterrows():
+        if all_cells_empty([
+            row['unique_id'], row['state'], row['district'],
+            row['disease_illness'], row['num_cases'], row['num_deaths']
+        ]):
+            if not isempty(row['comment_action_taken']):
+                rowsToDelete.append(i)
+                merged = df.at[i - 1, 'comment_action_taken'] + " " + row['comment_action_taken']
+                df.at[i - 1, 'comment_action_taken'] = merged
+    df = df.drop(rowsToDelete)
+    return df
+
 def clean_sheet(df):
     df = df.applymap(replace_extraneous_newlines)
     df = df.applymap(collapse_spaces)
     df['disease_illness'] = df['disease_illness'].apply(remove_roman_number)
     df['state'] = df['state'].apply(remove_leading_number)
+    df = merge_overflowing_tables_to_previous_page(df)
+    df = df.applymap(collapse_spaces)
     return df
 
 def process_one_by_one(year = 2018, rewrite = False):
@@ -107,7 +129,10 @@ def process_one_by_one(year = 2018, rewrite = False):
             print(csv_name, " does not exist. Try running scrape.py first")
             continue
         df = pd.read_csv(csv_name, dtype=str, na_values=[], keep_default_na=False) # https://github.com/pandas-dev/pandas/issues/17810
-        df = clean_sheet(df)
+        try:
+            df = clean_sheet(df)
+        except:
+            print("ERROR at", csv_name)
         if (rewrite):
             filename = csv_name
         else:
