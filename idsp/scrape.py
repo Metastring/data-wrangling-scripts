@@ -219,6 +219,11 @@ def secondary_col(df, table):
     if 'follow-up' in columns[0].lower():
         print("Dropping follow-up table")
         return None
+    if table.shape[1] > 8:
+        if "name" in temp.iloc[1][1].strip().lower() and "" == temp.iloc[1][2].strip():
+            column_numbers = [x for x in range(temp.shape[1])]  # list of columns' integer indices
+            column_numbers.remove(1) #removing column integer index 0
+            temp = temp.iloc[:, column_numbers]
     if 'disease' in columns[0].lower():
         c = temp.iloc[0]
         temp = temp.iloc[2:]
@@ -312,7 +317,6 @@ def process_one_by_one(year = 2018, from_week = 1, to_week = 53):
             df.to_csv(filename, index=False, quoting=1, encoding='utf-8')
         except:
             print("FAILED TO READ FILE: ", year, i, "pdf")
-            raise
 
 directory = sys.argv[1] if len(sys.argv) > 1 else "2018"
 from_week = sys.argv[2] if len(sys.argv) > 2 else "1"
