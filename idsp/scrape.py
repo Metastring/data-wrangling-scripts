@@ -108,8 +108,6 @@ def extract_tables(year=2018, from_week=1, to_week=52):
     return all_tables
 
 
-
-
 headers = [
     'unique_id',
     'state',
@@ -124,6 +122,21 @@ headers = [
     'reported_late',
     'under_surveillance'
 ]
+
+old_headers = [
+    'unique_id',
+    'state',
+    'district',
+    'disease_illness',
+    'num_cases_deaths',
+    'date_of_start_of_outbreak',
+    'date_of_reporting',
+    'current_status',
+    'comment_action_taken',
+    'reported_late',
+    'under_surveillance'
+]
+
 ten_headers = [
     'unique_id',
     'state',
@@ -131,6 +144,17 @@ ten_headers = [
     'disease_illness',
     'num_cases',
     'num_deaths',
+    'date_of_start_of_outbreak',
+    'date_of_reporting',
+    'current_status',
+    'comment_action_taken'
+]
+old_ten_headers = [
+    'unique_id',
+    'state',
+    'district',
+    'disease_illness',
+    'num_cases_deaths',
     'date_of_start_of_outbreak',
     'date_of_reporting',
     'current_status',
@@ -148,8 +172,72 @@ nine_headers = [
     'comment_action_taken'
 ]
 
+old_nine_headers = [
+    'unique_id',
+    'state',
+    'district',
+    'disease_illness',
+    'num_cases_deaths',
+    'date_of_start_of_outbreak',
+    'current_status',
+    'comment_action_taken'
+]
 
-def append_tables(all_tables):
+def stripSpaces(cell):
+    return cell.strip()
+
+def splitcasesdeaths(cell, index):
+    try:
+        return cell.split('/')[index]
+    except IndexError:
+        return ""
+    
+def splitcases(cell):
+    return splitcasesdeaths(cell, 0)
+
+def splitdeaths(cell):
+    return splitcasesdeaths(cell, 1)
+
+def append_tables_v1(all_tables):
+    df = pd.DataFrame(columns=old_headers)
+    for tables in all_tables:
+        for table in tables:
+            columns = list(table.df.iloc[0])
+            if table.shape[1] == 9:
+                temp = table.df.copy()
+                if 'sr.' in columns[0].lower() or 'sl.' in columns[0].lower():
+                    temp = temp.iloc[1:]
+                temp.columns = old_ten_headers
+                temp['reported_late'] = False
+                temp['under_surveillance'] = False
+                df = pd.concat([df, temp], sort=False)
+            elif table.shape[1] == 8:
+                temp = table.df.copy()
+                if 'follow-up' in columns[0].lower():
+                    print("Dropping follow-up table")
+                    continue
+                if 'disease' in columns[0].lower():
+                    c = temp.iloc[0]
+                    temp = temp.iloc[2:]
+                    temp.columns = old_nine_headers
+                    if 'reportedlate' in c[0].lower().replace(' ', ''):
+                        temp['reported_late'] = True
+                        temp['under_surveillance'] = False
+                    elif 'undersurv' in c[0].lower().replace(' ', ''):
+                        temp['reported_late'] = False
+                        temp['under_surveillance'] = True
+                    df = pd.concat([df, temp], sort=False)
+                else:
+                    temp.columns = old_nine_headers
+                    temp['reported_late'] = True
+                    temp['under_surveillance'] = False
+                    df = pd.concat([df, temp], sort=False)
+    df['num_cases'] = df['num_cases_deaths'].apply(splitcases).apply(stripSpaces)
+    df['num_deaths'] = df['num_cases_deaths'].apply(splitdeaths).apply(stripSpaces)
+    df = df[headers]
+    return df
+
+def append_tables(all_tables, algo_version=2):
     """Append all tables in PDFs
 
     Parameters
@@ -157,7 +245,9 @@ def append_tables(all_tables):
     all_tables : list
 
     """
-    df = pd.DataFrame(columns=headers)
+    if (algo_version == 1):
+        return append_tables_v1(all_tables)
+    df = pd.DataFrame(headers)
     for tables in all_tables:
         for table in tables:
             columns = list(table.df.iloc[0])
@@ -196,7 +286,10 @@ def process_one_by_one(year = 2018, from_week = 1, to_week = 53):
             scrape_web(year=year, from_week=i, to_week=i)
         try:
             all_tables = extract_tables(year=year, from_week=i, to_week=i)
-            df = append_tables(all_tables)
+            if year <= 2011:
+                df = append_tables(all_tables, 1)
+            else:
+                df = append_tables(all_tables, 2)
             filename = os.path.join(data_dir, str(year), '{}.csv'.format(i))
             df.to_csv(filename, index=False, quoting=1, encoding='utf-8')
         except:

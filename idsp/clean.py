@@ -83,12 +83,19 @@ def remove_roman_number(cell):
         return '.'.join(split[1:])
     else:
         return cell
-    
+
+def remove_leading_number(cell):
+    split = cell.split()
+    if len(split) > 0 and split[0].lower().rstrip('.').isnumeric():
+        return ' '.join(split[1:])
+    else:
+        return cell
 
 def clean_sheet(df):
     df = df.applymap(replace_extraneous_newlines)
     df = df.applymap(collapse_spaces)
     df['disease_illness'] = df['disease_illness'].apply(remove_roman_number)
+    df['state'] = df['state'].apply(remove_leading_number)
     return df
 
 def process_one_by_one(year = 2018, rewrite = False):
