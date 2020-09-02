@@ -308,7 +308,11 @@ def lookup_line_scale(year, week):
     return 40
 
 def lookup_pages(year, week):
-    if year > 2016 or (year == 2016 and week > 13):
+    if year > 2016:
+        return '3-end'
+    if year == 2016 and (week <= 13 or week in [41, 42, 50]):
+        return '2-end'
+    else:
         return '3-end'
     return '2-end'
 
