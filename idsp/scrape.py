@@ -82,7 +82,7 @@ def scrape_web(year=2018, from_week=1, to_week=52):
 
 
 
-def extract_tables(year=2018, from_week=1, to_week=52):
+def extract_tables(year=2018, from_week=1, to_week=52, lineScale=40):
     """Extract tables from downloaded PDFs using Camelot
     Parameters
     ----------
@@ -101,7 +101,7 @@ def extract_tables(year=2018, from_week=1, to_week=52):
         filename = os.path.join(year_dir, filename)
         print('Processing {} ...'.format(filename))
         # tables = camelot.read_pdf(filename, pages='2-end', line_size_scaling=40)
-        tables = camelot.read_pdf(filename, pages='2-end', flavor='lattice', line_scale=60)
+        tables = camelot.read_pdf(filename, pages='2-end', flavor='lattice', line_scale=lineScale)
 
         print('Found {} tables(s)'.format(tables.n))
         all_tables.append(tables)
@@ -216,7 +216,7 @@ def primary_col(df, table):
 def secondary_col(df, table):
     columns = list(table.df.iloc[0])
     temp = table.df.copy()
-    if 'follow-up' in columns[0].lower():
+    if 'follow' in columns[0].lower():
         print("Dropping follow-up table")
         return None
     if table.shape[1] > 8:
@@ -270,13 +270,11 @@ def append_tables(all_tables):
     for tables in all_tables:
         for table in tables:
             columns = list(table.df.iloc[0])
-            print(columns)
-            print(list(table.df.iloc[1]))
-            if table.shape[1] == 10 or 'unique' in columns[0].lower().replace(' ', ''):
+            if table.shape[1] == 10 or (table.shape[1] > 10 and 'unique' in columns[0].lower().replace(' ', '')):
                 temp = table.df.copy()
                 if (table.shape[1] > 10):
                     temp = temp.iloc[:, 0:10]
-                if 'unique' in columns[0].lower():
+                if 'unique' in columns[0].lower() or chars_in_cell(columns[0], 's.no') or chars_in_cell(columns[0], 'sl.'):
                     temp = temp.iloc[1:]
                 temp.columns = ten_headers
                 temp['reported_late'] = False
@@ -308,10 +306,11 @@ def process_one_by_one(year = 2018, from_week = 1, to_week = 53):
         if (not(os.path.exists(pdf_name))):
             scrape_web(year=year, from_week=i, to_week=i)
         try:
-            all_tables = extract_tables(year=year, from_week=i, to_week=i)
             if year <= 2011:
+                all_tables = extract_tables(year=year, from_week=i, to_week=i, lineScale=60)
                 df = append_tables_v1(all_tables)
             else:
+                all_tables = extract_tables(year=year, from_week=i, to_week=i)
                 df = append_tables(all_tables)
             filename = os.path.join(data_dir, str(year), '{}.csv'.format(i))
             df.to_csv(filename, index=False, quoting=1, encoding='utf-8')
