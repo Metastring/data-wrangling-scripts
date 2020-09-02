@@ -82,7 +82,7 @@ def scrape_web(year=2018, from_week=1, to_week=52):
 
 
 
-def extract_tables(year=2018, from_week=1, to_week=52, lineScale=40):
+def extract_tables(year=2018, from_week=1, to_week=52, lineScale=40, pages='2-end'):
     """Extract tables from downloaded PDFs using Camelot
     Parameters
     ----------
@@ -101,7 +101,7 @@ def extract_tables(year=2018, from_week=1, to_week=52, lineScale=40):
         filename = os.path.join(year_dir, filename)
         print('Processing {} ...'.format(filename))
         # tables = camelot.read_pdf(filename, pages='2-end', line_size_scaling=40)
-        tables = camelot.read_pdf(filename, pages='2-end', flavor='lattice', line_scale=lineScale)
+        tables = camelot.read_pdf(filename, pages=pages, flavor='lattice', line_scale=lineScale)
 
         print('Found {} tables(s)'.format(tables.n))
         all_tables.append(tables)
@@ -307,13 +307,18 @@ def lookup_line_scale(year, week):
         return 80
     return 40
 
+def lookup_pages(year, week):
+    if year > 2016 or (year == 2016 and week > 13):
+        return '3-end'
+    return '2-end'
+
 def process_one_by_one(year = 2018, from_week = 1, to_week = 53):
     for i in range(from_week, to_week + 1):
         pdf_name = os.path.join(data_dir, str(year), '{}.pdf'.format(i))
         if (not(os.path.exists(pdf_name))):
             scrape_web(year=year, from_week=i, to_week=i)
         try:
-            all_tables = extract_tables(year=year, from_week=i, to_week=i, lineScale=lookup_line_scale(year, i))
+            all_tables = extract_tables(year=year, from_week=i, to_week=i, lineScale=lookup_line_scale(year, i), pages=lookup_pages(year, i))
             if year <= 2011:
                 df = append_tables_v1(all_tables)
             else:
