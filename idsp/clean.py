@@ -112,6 +112,13 @@ def merge_overflowing_tables_to_previous_page(df):
     df = df.reset_index(drop=True)
     return df
 
+def add_missing_district_from_above_row(df):
+    for i, row in df.iterrows():
+        if isempty(row['district']) and not isempty(row['disease_illness']):
+            previous_row_district = df.at[i - 1, 'district']
+            df.at[i, 'district'] = previous_row_district
+    return df
+
 def add_missing_state_from_above_row(df):
     for i, row in df.iterrows():
         if isempty(row['state']) and not isempty(row['district']):
@@ -119,19 +126,29 @@ def add_missing_state_from_above_row(df):
             df.at[i, 'state'] = previous_row_state
     return df
 
-def clean_sheet(df):
+def special_files(df, year, week):
+    if year == 2012 and week == 3:
+        for i, row in df.iterrows():
+            if row['unique_id'].strip() != "":
+                possible_split = row['unique_id'].split('. ')
+                if len(possible_split) > 1 and row['state'].strip() == "":
+                    df.at[i, 'state'] = possible_split[1]
+                    df.at[i, 'unique_id'] = possible_split[0]
+    return df
+
+def clean_sheet(df, year, week):
+    df = special_files(df, year, week)
     df = df.applymap(replace_extraneous_newlines)
     df = df.applymap(collapse_spaces)
     df['disease_illness'] = df['disease_illness'].apply(remove_roman_number)
     df['state'] = df['state'].apply(remove_leading_number)
     df = merge_overflowing_tables_to_previous_page(df)
+    df = add_missing_district_from_above_row(df)
     df = add_missing_state_from_above_row(df)
     df = df.applymap(collapse_spaces)
     return df
 
-def process_one_by_one(year = 2018, rewrite = False):
-    from_week = 1
-    to_week = 53
+def process_one_by_one(year = 2018, from_week=1, to_week=53, rewrite = False):
     for i in range(from_week, to_week + 1):
         csv_name = os.path.join(data_dir, str(year), '{}.csv'.format(i))
         if (not(os.path.exists(csv_name))):
@@ -139,9 +156,11 @@ def process_one_by_one(year = 2018, rewrite = False):
             continue
         df = pd.read_csv(csv_name, dtype=str, na_values=[], keep_default_na=False) # https://github.com/pandas-dev/pandas/issues/17810
         try:
-            df = clean_sheet(df)
+            df = clean_sheet(df, year, i)
         except:
             print("ERROR at", csv_name)
+            if (from_week == to_week):
+                raise
         if (rewrite):
             filename = csv_name
         else:
@@ -151,4 +170,6 @@ def process_one_by_one(year = 2018, rewrite = False):
 
 
 directory = sys.argv[1] if len(sys.argv) > 1 else "2018"
-process_one_by_one(directory)
+from_week = sys.argv[2] if len(sys.argv) > 2 else "1"
+to_week = sys.argv[3] if len(sys.argv) > 3 else "53"
+process_one_by_one(int(directory), int(from_week), int(to_week), rewrite=False)

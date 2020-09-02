@@ -300,17 +300,23 @@ def append_tables(all_tables):
                     df = pd.concat([df, temp], sort=False)
     return df
 
+def lookup_line_scale(year, week):
+    if year <= 2011:
+        return 60
+    if year == 2012 and week == 3:
+        return 80
+    return 40
+
 def process_one_by_one(year = 2018, from_week = 1, to_week = 53):
     for i in range(from_week, to_week + 1):
         pdf_name = os.path.join(data_dir, str(year), '{}.pdf'.format(i))
         if (not(os.path.exists(pdf_name))):
             scrape_web(year=year, from_week=i, to_week=i)
         try:
+            all_tables = extract_tables(year=year, from_week=i, to_week=i, lineScale=lookup_line_scale(year, i))
             if year <= 2011:
-                all_tables = extract_tables(year=year, from_week=i, to_week=i, lineScale=60)
                 df = append_tables_v1(all_tables)
             else:
-                all_tables = extract_tables(year=year, from_week=i, to_week=i)
                 df = append_tables(all_tables)
             filename = os.path.join(data_dir, str(year), '{}.csv'.format(i))
             df.to_csv(filename, index=False, quoting=1, encoding='utf-8')
