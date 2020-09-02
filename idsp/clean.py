@@ -109,6 +109,14 @@ def merge_overflowing_tables_to_previous_page(df):
                 merged = df.at[i - 1, 'comment_action_taken'] + " " + row['comment_action_taken']
                 df.at[i - 1, 'comment_action_taken'] = merged
     df = df.drop(rowsToDelete)
+    df = df.reset_index(drop=True)
+    return df
+
+def add_missing_state_from_above_row(df):
+    for i, row in df.iterrows():
+        if isempty(row['state']) and not isempty(row['district']):
+            previous_row_state = df.at[i - 1, 'state']
+            df.at[i, 'state'] = previous_row_state
     return df
 
 def clean_sheet(df):
@@ -117,6 +125,7 @@ def clean_sheet(df):
     df['disease_illness'] = df['disease_illness'].apply(remove_roman_number)
     df['state'] = df['state'].apply(remove_leading_number)
     df = merge_overflowing_tables_to_previous_page(df)
+    df = add_missing_state_from_above_row(df)
     df = df.applymap(collapse_spaces)
     return df
 
